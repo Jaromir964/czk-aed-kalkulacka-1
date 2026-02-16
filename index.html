@@ -41,7 +41,7 @@ let currentRate=0;
 
 async function fetchRate(){
 try{
-const res=await fetch("https://api.frankfurter.app/latest?from=CZK&to=AED");
+const res=await fetch("https://open.er-api.com/v6/latest/CZK");
 const data=await res.json();
 currentRate=data.rates.AED;
 document.getElementById("rate").innerText="Aktuální kurz: 1 CZK = "+currentRate.toFixed(4)+" AED";
@@ -66,13 +66,13 @@ start.setDate(end.getDate()-days);
 
 const format=d=>d.toISOString().split("T")[0];
 
-const url=`https://api.frankfurter.app/${format(start)}..${format(end)}?from=CZK&to=AED`;
+const url=`https://open.er-api.com/v6/latest/CZK`;
 
 const res=await fetch(url);
 const data=await res.json();
 
-const labels=Object.keys(data.rates);
-const values=labels.map(date=>data.rates[date].AED);
+const labels=["Aktuální kurz"];
+const values=[data.rates.AED];
 
 if(chart)chart.destroy();
 
