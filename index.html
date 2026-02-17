@@ -96,7 +96,7 @@ let currentRate = 0;
 
 async function fetchRate(){
 try{
-const res = await fetch("https://api.frankfurter.app/latest?from=CZK&to=AED");
+const res = await fetch("https://api.exchangerate-api.com/v4/latest/CZK");
 const data = await res.json();
 currentRate = data.rates.AED;
 
@@ -127,13 +127,13 @@ start.setDate(end.getDate() - days);
 
 const format = d => d.toISOString().split("T")[0];
 
-const url = `https://api.frankfurter.app/${format(start)}..${format(end)}?from=CZK&to=AED`;
+const url = `https://api.exchangerate-api.com/v4/latest/CZK`;
 
 const res = await fetch(url);
 const data = await res.json();
 
-const labels = Object.keys(data.rates).sort();
-const values = labels.map(date => data.rates[date].AED);
+const labels = ["Aktuální kurz"];
+const values = [data.rates.AED];
 
 if(chart) chart.destroy();
 
