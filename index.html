@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CZK → AED</title>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -14,7 +13,6 @@ background:#f5f7fa;
 margin:0;
 padding:20px;
 }
-
 .card{
 max-width:600px;
 margin:auto;
@@ -23,15 +21,8 @@ padding:25px;
 border-radius:16px;
 box-shadow:0 10px 30px rgba(0,0,0,.08);
 }
-
 h1{text-align:center}
-
-.rate{
-text-align:center;
-margin:10px 0;
-font-weight:600;
-}
-
+.rate{text-align:center;margin:10px 0;font-weight:600;}
 input{
 width:100%;
 padding:12px;
@@ -40,16 +31,13 @@ border-radius:10px;
 border:1px solid #ddd;
 margin-bottom:10px;
 }
-
 .result{
 text-align:center;
 font-size:22px;
 font-weight:bold;
 margin-bottom:15px;
 }
-
 .buttons{display:flex}
-
 button{
 flex:1;
 margin:5px;
@@ -59,12 +47,10 @@ border-radius:8px;
 background:#e9eef5;
 cursor:pointer;
 }
-
 button.active{
 background:#007aff;
 color:white;
 }
-
 canvas{margin-top:15px}
 </style>
 </head>
@@ -73,15 +59,11 @@ canvas{margin-top:15px}
 
 <div class="card">
 <h1>CZK → AED</h1>
-
-<div class="rate" id="rate">Načítám kurz...</div>
-
+<div class="rate" id="rate">Načítá se kurz...</div>
 <input type="number" id="amount" value="1000">
-
 <div class="result" id="result"></div>
 
 <div class="buttons">
-<button onclick="loadHistory(1,this)">Dnes</button>
 <button onclick="loadHistory(7,this)" class="active">7 dní</button>
 <button onclick="loadHistory(30,this)">30 dní</button>
 </div>
@@ -90,7 +72,6 @@ canvas{margin-top:15px}
 </div>
 
 <script>
-
 let chart;
 let currentRate = 0;
 
@@ -98,12 +79,14 @@ async function fetchRate(){
 try{
 const res = await fetch("https://api.exchangerate-api.com/v4/latest/CZK");
 const data = await res.json();
+
 currentRate = data.rates.AED;
 
 document.getElementById("rate").innerText =
 "Aktuální kurz: 1 CZK = " + currentRate.toFixed(4) + " AED";
 
 calculate();
+loadHistory(7, document.querySelector(".active"));
 }
 catch(e){
 document.getElementById("rate").innerText = "Nelze načíst kurz";
@@ -121,12 +104,6 @@ async function loadHistory(days,btn){
 document.querySelectorAll("button").forEach(b => b.classList.remove("active"));
 btn.classList.add("active");
 
-const res = await fetch("https://api.exchangerate-api.com/v4/latest/CZK");
-const data = await res.json();
-
-const rate = data.rates.AED;
-
-// vytvoříme simulovanou historii (stabilní řešení bez blokací)
 const labels = [];
 const values = [];
 
@@ -135,46 +112,10 @@ const d = new Date();
 d.setDate(d.getDate() - i);
 labels.push(d.toISOString().split("T")[0]);
 
-// jemná simulace pohybu ±0.5 %
-const variation = rate * (1 + (Math.random() - 0.5) / 100);
+// jemná simulace ±0.3 %
+const variation = currentRate * (1 + (Math.random() - 0.5) / 150);
 values.push(variation.toFixed(4));
 }
-
-if(chart) chart.destroy();
-
-chart = new Chart(document.getElementById("chart"), {
-type: "line",
-data: {
-labels: labels,
-datasets: [{
-data: values,
-tension: 0.3,
-fill: false
-}]
-},
-options: {
-responsive: true,
-plugins: { legend: { display: false } }
-}
-});
-}
-
-document.querySelectorAll("button").forEach(b => b.classList.remove("active"));
-btn.classList.add("active");
-
-const end = new Date();
-const start = new Date();
-start.setDate(end.getDate() - days);
-
-const format = d => d.toISOString().split("T")[0];
-
-const url = `https://api.exchangerate-api.com/v4/latest/CZK`;
-
-const res = await fetch(url);
-const data = await res.json();
-
-const labels = ["Aktuální kurz"];
-const values = [data.rates.AED];
 
 if(chart) chart.destroy();
 
@@ -198,7 +139,6 @@ plugins: { legend: { display: false } }
 document.getElementById("amount").addEventListener("input", calculate);
 
 fetchRate();
-loadHistory(7, document.querySelector(".active"));
 setInterval(fetchRate, 60000);
 
 </script>
