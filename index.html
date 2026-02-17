@@ -14,15 +14,15 @@ margin:0;
 padding:20px;
 }
 .card{
-max-width:600px;
+max-width:700px;
 margin:auto;
 background:#fff;
-padding:25px;
-border-radius:16px;
-box-shadow:0 10px 30px rgba(0,0,0,.08);
+padding:30px;
+border-radius:18px;
+box-shadow:0 15px 40px rgba(0,0,0,.08);
 }
 h1{text-align:center}
-.rate{text-align:center;margin:10px 0;font-weight:600;}
+.rate{text-align:center;margin:10px 0;font-weight:600;font-size:18px;}
 input{
 width:100%;
 padding:12px;
@@ -35,9 +35,9 @@ margin-bottom:10px;
 text-align:center;
 font-size:22px;
 font-weight:bold;
-margin-bottom:15px;
+margin-bottom:20px;
 }
-.buttons{display:flex}
+.buttons{display:flex;margin-bottom:10px}
 button{
 flex:1;
 margin:5px;
@@ -51,7 +51,7 @@ button.active{
 background:#007aff;
 color:white;
 }
-canvas{margin-top:15px}
+canvas{margin-top:10px}
 </style>
 </head>
 
@@ -66,6 +66,7 @@ canvas{margin-top:15px}
 <div class="buttons">
 <button onclick="loadHistory(7,this)" class="active">7 dní</button>
 <button onclick="loadHistory(30,this)">30 dní</button>
+<button onclick="loadHistory(90,this)">90 dní</button>
 </div>
 
 <canvas id="chart"></canvas>
@@ -77,7 +78,7 @@ let currentRate = 0;
 
 async function fetchRate(){
 try{
-const res = await fetch("https://api.exchangerate-api.com/v4/latest/CZK");
+const res = await fetch("https://api.exchangerate.host/latest?base=CZK&symbols=AED");
 const data = await res.json();
 
 currentRate = data.rates.AED;
@@ -104,18 +105,19 @@ async function loadHistory(days,btn){
 document.querySelectorAll("button").forEach(b => b.classList.remove("active"));
 btn.classList.add("active");
 
-const labels = [];
-const values = [];
+const end = new Date();
+const start = new Date();
+start.setDate(end.getDate() - days);
 
-for(let i = days; i >= 0; i--){
-const d = new Date();
-d.setDate(d.getDate() - i);
-labels.push(d.toISOString().split("T")[0]);
+const format = d => d.toISOString().split("T")[0];
 
-// jemná simulace ±0.3 %
-const variation = currentRate * (1 + (Math.random() - 0.5) / 150);
-values.push(variation.toFixed(4));
-}
+const url = `https://api.exchangerate.host/timeseries?start_date=${format(start)}&end_date=${format(end)}&base=CZK&symbols=AED`;
+
+const res = await fetch(url);
+const data = await res.json();
+
+const labels = Object.keys(data.rates).sort();
+const values = labels.map(date => data.rates[date].AED);
 
 if(chart) chart.destroy();
 
@@ -124,14 +126,33 @@ type: "line",
 data: {
 labels: labels,
 datasets: [{
+label: "CZK → AED",
 data: values,
 tension: 0.3,
+pointRadius: 2,
 fill: false
 }]
 },
 options: {
 responsive: true,
-plugins: { legend: { display: false } }
+interaction: {
+mode: 'index',
+intersect: false
+},
+plugins: {
+legend: { display: false },
+tooltip: {
+enabled: true
+}
+},
+scales: {
+x: {
+grid: { display: false }
+},
+y: {
+grid: { color: "#eee" }
+}
+}
 }
 });
 }
