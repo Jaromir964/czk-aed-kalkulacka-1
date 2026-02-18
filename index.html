@@ -14,7 +14,7 @@ margin:0;
 padding:20px;
 }
 .card{
-max-width:700px;
+max-width:800px;
 margin:auto;
 background:#fff;
 padding:30px;
@@ -73,76 +73,76 @@ canvas{margin-top:10px}
 </div>
 
 <script>
+
 let chart;
+let selectedDays = 7;
+let fullData = {};
 let currentRate = 0;
 
-// Načtení aktuálního kurzu
-async function fetchRate(){
-    try{
-        const res = await fetch("https://open.er-api.com/v6/latest/CZK");
-        const data = await res.json();
-        currentRate = data.rates.AED;
-        document.getElementById("rate").innerText =
-            "Aktuální kurz: 1 CZK = " + currentRate.toFixed(4) + " AED";
-        calculate();
-        loadHistory(7, document.querySelector(".active"));
-    } catch(e){
-        document.getElementById("rate").innerText = "Nelze načíst kurz";
-        console.error(e);
-    }
+const API_KEY = "QE7EVYZZBM5J6VUR";
+
+// Načtení historie (jednou při startu)
+async function fetchFullHistory(){
+    const url = `https://www.alphavantage.co/query?function=FX_DAILY&from_symbol=CZK&to_symbol=AED&outputsize=full&apikey=${API_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    fullData = data["Time Series FX (Daily)"];
+    updateCurrentRate();
+    loadHistory(selectedDays, document.querySelector(".active"));
 }
 
-// Přepočet zadané částky
+// Aktuální kurz = poslední dostupný den
+function updateCurrentRate(){
+    const dates = Object.keys(fullData).sort();
+    const latestDate = dates[dates.length - 1];
+    currentRate = parseFloat(fullData[latestDate]["4. close"]);
+    document.getElementById("rate").innerText =
+        "Aktuální kurz: 1 CZK = " + currentRate.toFixed(4) + " AED";
+    calculate();
+}
+
 function calculate(){
     const amount = document.getElementById("amount").value;
     document.getElementById("result").innerText =
         (amount * currentRate).toFixed(4) + " AED";
 }
 
-// Vytvoření realistického grafu
-async function loadHistory(days,btn){
+function loadHistory(days,btn){
+
+    selectedDays = days;
     document.querySelectorAll("button").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
 
-    const labels = [];
-    const values = [];
-
-    for(let i=days; i>=0; i--){
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        labels.push(d.toISOString().split("T")[0]);
-        // simulace kolísání ±0.5 % každý den, 4 desetinná místa
-        const variation = currentRate * (1 + (Math.random()-0.5)/100);
-        values.push(parseFloat(variation.toFixed(4)));
-    }
+    const dates = Object.keys(fullData).sort().slice(-days);
+    const values = dates.map(date => parseFloat(fullData[date]["4. close"]));
 
     if(chart) chart.destroy();
 
-    chart = new Chart(document.getElementById("chart"),{
+    chart = new Chart(document.getElementById("chart"), {
         type: "line",
         data: {
-            labels: labels,
+            labels: dates,
             datasets: [{
                 label: "CZK → AED",
                 data: values,
                 tension: 0.3,
-                pointRadius: 3,
+                pointRadius: 2,
                 fill: false
             }]
         },
         options: {
-            responsive:true,
+            responsive: true,
             interaction: {
                 mode: 'index',
                 intersect: false
             },
             plugins: {
-                legend:{display:false},
-                tooltip:{enabled:true}
+                legend: { display: false },
+                tooltip: { enabled: true }
             },
-            scales:{
-                x:{grid:{display:false}},
-                y:{grid:{color:"#eee"}}
+            scales: {
+                x: { grid: { display: false } },
+                y: { grid: { color: "#eee" } }
             }
         }
     });
@@ -150,9 +150,8 @@ async function loadHistory(days,btn){
 
 document.getElementById("amount").addEventListener("input", calculate);
 
-// Načítání kurzu a opakování každou minutu
-fetchRate();
-setInterval(fetchRate, 60000);
+fetchFullHistory();
+
 </script>
 
 </body>
