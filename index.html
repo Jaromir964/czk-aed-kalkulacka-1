@@ -3,141 +3,163 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CZK → AED PRO</title>
+<title>CZK → AED Invest Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body{
-font-family:-apple-system;
-background:#f5f7fa;
 margin:0;
-padding:20px;
+padding:40px;
+background:#f2f4f7;
+font-family:-apple-system,BlinkMacSystemFont,sans-serif;
 }
-.card{
-max-width:900px;
-margin:auto;
-background:#fff;
-padding:30px;
-border-radius:18px;
-box-shadow:0 15px 40px rgba(0,0,0,.08);
-}
-h1{text-align:center}
 
-.rate{text-align:center;margin:10px 0;font-weight:600;font-size:18px;}
+.container{
+max-width:1100px;
+margin:auto;
+background:white;
+padding:40px;
+border-radius:20px;
+box-shadow:0 20px 60px rgba(0,0,0,.08);
+}
+
+h1{
+margin:0 0 20px 0;
+font-size:28px;
+}
 
 .stats{
 display:flex;
-justify-content:space-around;
-margin:15px 0;
+gap:40px;
+margin-bottom:20px;
 font-weight:600;
 }
 
-.stat-box{
-text-align:center;
-}
-
-input{
-width:100%;
-padding:12px;
-font-size:18px;
-border-radius:10px;
-border:1px solid #ddd;
-margin-bottom:10px;
-}
-
-.result{
-text-align:center;
-font-size:22px;
-font-weight:bold;
+.buttons{
+display:flex;
+gap:10px;
 margin-bottom:20px;
 }
 
-.buttons{display:flex;margin-bottom:10px}
-
 button{
-flex:1;
-margin:5px;
-padding:10px;
+padding:10px 16px;
 border:none;
 border-radius:8px;
-background:#e9eef5;
+background:#e5e7eb;
+cursor:pointer;
+font-weight:600;
 cursor:pointer;
 }
 
 button.active{
-background:#007aff;
+background:#2563eb;
 color:white;
 }
 
-canvas{margin-top:10px}
+.up{color:#16a34a;}
+.down{color:#dc2626;}
+
+.alertBox{
+margin-top:20px;
+padding:15px;
+background:#f9fafb;
+border-radius:10px;
+}
+
+input{
+padding:8px;
+margin-right:10px;
+border-radius:6px;
+border:1px solid #ddd;
+}
+
 </style>
 </head>
-
 <body>
 
-<div class="card">
-<h1>CZK → AED</h1>
+<div class="container">
 
-<div class="rate" id="rate">Načítá se kurz...</div>
+<h1 id="rate">Načítá se kurz...</h1>
 
 <div class="stats">
-<div class="stat-box">Změna: <div id="change">-</div></div>
-<div class="stat-box">Min: <div id="min">-</div></div>
-<div class="stat-box">Max: <div id="max">-</div></div>
+<div>Změna: <span id="change"></span></div>
+<div>Min: <span id="min"></span></div>
+<div>Max: <span id="max"></span></div>
 </div>
 
-<input type="number" id="amount" value="1000">
-<div class="result" id="result"></div>
-
 <div class="buttons">
-<button onclick="loadHistory(7,this)" class="active">7 dní</button>
-<button onclick="loadHistory(30,this)">30 dní</button>
-<button onclick="loadHistory(90,this)">90 dní</button>
+<button class="active" onclick="loadData(7,this)">7 dní</button>
+<button onclick="loadData(30,this)">30 dní</button>
+<button onclick="loadData(90,this)">90 dní</button>
+<button onclick="exportCSV()">Export CSV</button>
 </div>
 
 <canvas id="chart"></canvas>
+
+<div class="alertBox">
+<input type="number" step="0.0001" id="alertValue" placeholder="Zadej cílový kurz">
+<button onclick="checkAlert()">Nastavit alert</button>
+<span id="alertStatus"></span>
+</div>
+
 </div>
 
 <script>
 
-let chart;
-let selectedDays = 7;
-let fullData = {};
-let currentRate = 0;
 const API_KEY = "QE7EVYZZBM5J6VUR";
+let chart;
+let historyData = {};
+let currentRate = null;
 
-async function fetchFullHistory(){
-const url = `https://www.alphavantage.co/query?function=FX_DAILY&from_symbol=CZK&to_symbol=AED&outputsize=full&apikey=${API_KEY}`;
-const res = await fetch(url);
-const data = await res.json();
-fullData = data["Time Series FX (Daily)"];
-updateCurrentRate();
-loadHistory(selectedDays, document.querySelector(".active"));
+async function fetchData(){
+
+try{
+
+const url = `https://www.alphavantage.co/query?function=FX_DAILY&from_symbol=CZK&to_symbol=AED&outputsize=compact&apikey=${API_KEY}`;
+const response = await fetch(url);
+const data = await response.json();
+
+if(!data["Time Series FX (Daily)"]){
+document.getElementById("rate").innerText="Data nejsou dostupná";
+return;
 }
 
-function updateCurrentRate(){
-const dates = Object.keys(fullData).sort();
-const latestDate = dates[dates.length - 1];
-currentRate = parseFloat(fullData[latestDate]["4. close"]);
+historyData = data["Time Series FX (Daily)"];
+
+const dates = Object.keys(historyData).sort();
+const latest = dates[dates.length-1];
+currentRate = parseFloat(historyData[latest]["4. close"]);
+
 document.getElementById("rate").innerText =
 "Aktuální kurz: 1 CZK = " + currentRate.toFixed(4) + " AED";
-calculate();
+
+loadData(7, document.querySelector(".active"));
+
+}catch(e){
+document.getElementById("rate").innerText="Chyba načtení dat";
 }
 
-function calculate(){
-const amount = document.getElementById("amount").value;
-document.getElementById("result").innerText =
-(amount * currentRate).toFixed(4) + " AED";
 }
 
-function loadHistory(days,btn){
+function calculateMA(values, period){
+return values.map((v,i)=>{
+if(i<period-1) return null;
+let sum=0;
+for(let j=0;j<period;j++){
+sum+=values[i-j];
+}
+return sum/period;
+});
+}
 
-selectedDays = days;
-document.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+function loadData(days,btn){
+
+document.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
 btn.classList.add("active");
 
-const dates = Object.keys(fullData).sort().slice(-days);
-const values = dates.map(date => parseFloat(fullData[date]["4. close"]));
+const dates = Object.keys(historyData).sort().slice(-days);
+const values = dates.map(d=>parseFloat(historyData[d]["4. close"]));
+const ma14 = calculateMA(values,14);
 
 const first = values[0];
 const last = values[values.length-1];
@@ -145,40 +167,72 @@ const min = Math.min(...values);
 const max = Math.max(...values);
 const change = ((last-first)/first*100).toFixed(2);
 
-document.getElementById("change").innerText = change + " %";
-document.getElementById("min").innerText = min.toFixed(4);
-document.getElementById("max").innerText = max.toFixed(4);
+const changeEl = document.getElementById("change");
+changeEl.innerText=(change>=0?"+":"")+change+" %";
+changeEl.className = change>=0 ? "up":"down";
+
+document.getElementById("min").innerText=min.toFixed(4);
+document.getElementById("max").innerText=max.toFixed(4);
 
 if(chart) chart.destroy();
 
-chart = new Chart(document.getElementById("chart"), {
-type: "line",
-data: {
-labels: dates,
-datasets: [{
-data: values,
-tension: 0.3,
-pointRadius: 2,
-fill: false
-}]
+chart=new Chart(document.getElementById("chart"),{
+type:"line",
+data:{
+labels:dates,
+datasets:[
+{
+label:"Kurz",
+data:values,
+tension:0.3,
+borderWidth:2,
+borderColor: change>=0 ? "#16a34a" : "#dc2626"
 },
-options: {
-responsive: true,
-interaction: { mode: 'index', intersect: false },
-plugins: { legend: { display: false } },
-scales: {
-x: { grid: { display: false } },
-y: { grid: { color: "#eee" } }
+{
+label:"MA14",
+data:ma14,
+tension:0.3,
+borderWidth:2,
+borderDash:[5,5]
 }
+]
+},
+options:{
+responsive:true,
+plugins:{legend:{display:true}},
+interaction:{mode:'index',intersect:false}
 }
 });
+
 }
 
-document.getElementById("amount").addEventListener("input", calculate);
-fetchFullHistory();
+function exportCSV(){
+let csv="Date,Rate\n";
+Object.keys(historyData).sort().forEach(d=>{
+csv+=d+","+historyData[d]["4. close"]+"\n";
+});
+const blob=new Blob([csv],{type:"text/csv"});
+const url=URL.createObjectURL(blob);
+const a=document.createElement("a");
+a.href=url;
+a.download="CZK_AED_history.csv";
+a.click();
+}
+
+function checkAlert(){
+const target=parseFloat(document.getElementById("alertValue").value);
+if(!target || !currentRate) return;
+
+if(currentRate>=target){
+document.getElementById("alertStatus").innerText="Kurz dosáhl cílové hodnoty!";
+}else{
+document.getElementById("alertStatus").innerText="Zatím nedosaženo.";
+}
+}
+
+fetchData();
 
 </script>
 
 </body>
 </html>
-
